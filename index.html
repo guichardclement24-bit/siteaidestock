@@ -1,0 +1,2166 @@
+<!DOCTYPE html>
+<html lang="fr" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>MargePilot — Gestion & Marges Revendeur</title>
+
+    <!-- Balises PWA pour installation sur écran d'accueil -->
+    <meta name="description" content="Tableau de bord de gestion de stock, calcul de marges nettes, ROI et suivi fiscal DAC7 pour revendeurs.">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="MargePilot">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" id="meta-theme-color" content="#F8FAFC">
+
+    <!-- Police Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Initialisation immédiate du thème pour éviter tout flash lumineux -->
+    <script>
+        (function () {
+            try {
+                const saved = localStorage.getItem('margepilot_theme');
+                const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+                if (saved === 'dark' || (!saved && prefersDark)) {
+                    document.documentElement.classList.add('dark');
+                }
+            } catch (e) {}
+        })();
+    </script>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+                    }
+                }
+            }
+        };
+    </script>
+
+    <!-- Chart.js & Icônes Lucide -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans antialiased selection:bg-indigo-100 selection:text-indigo-700 dark:selection:bg-indigo-900/60 dark:selection:text-indigo-200 transition-colors duration-200">
+
+    <div class="min-h-screen flex flex-col lg:flex-row">
+
+        <!-- ========================================================= -->
+        <!-- BARRE LATÉRALE DESKTOP                                    -->
+        <!-- ========================================================= -->
+        <aside class="hidden lg:flex lg:flex-col lg:w-64 lg:fixed lg:inset-y-0 bg-white dark:bg-slate-900 border-r border-slate-200/80 dark:border-slate-800 z-30 transition-colors">
+            <!-- Logo -->
+            <div class="h-16 flex items-center justify-between px-6 border-b border-slate-100 dark:border-slate-800">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-sm shadow-indigo-500/20">
+                        <i data-lucide="trending-up" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <span class="font-bold text-lg tracking-tight text-slate-900 dark:text-white">MargePilot</span>
+                        <span class="block text-[11px] font-medium text-indigo-600 dark:text-indigo-400 -mt-1">Gestion Revendeur</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Navigation principale (3 onglets) -->
+            <nav class="flex-1 px-4 py-6 space-y-1.5" aria-label="Navigation principale">
+                <button type="button" onclick="switchView('dashboard')" id="nav-dashboard" class="nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all">
+                    <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+                    Tableau de bord
+                </button>
+                <button type="button" onclick="switchView('inventory')" id="nav-inventory" class="nav-btn w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all">
+                    <span class="flex items-center gap-3">
+                        <i data-lucide="package" class="w-4 h-4"></i>
+                        Stock & Articles
+                    </span>
+                    <span id="sidebar-stock-badge" class="text-[11px] font-semibold px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">0</span>
+                </button>
+                <button type="button" onclick="switchView('stats')" id="nav-stats" class="nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all">
+                    <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
+                    Statistiques & Données
+                </button>
+            </nav>
+
+            <!-- Pied de barre latérale -->
+            <div class="p-4 border-t border-slate-100 dark:border-slate-800 space-y-3">
+                <button type="button" onclick="toggleTheme()" class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 hover:bg-slate-100 dark:hover:bg-slate-800 text-sm font-medium text-slate-700 dark:text-slate-200 transition-colors">
+                    <span class="flex items-center gap-2.5">
+                        <i data-lucide="sun" class="w-4 h-4 hidden dark:block text-amber-400"></i>
+                        <i data-lucide="moon" class="w-4 h-4 block dark:hidden text-indigo-600"></i>
+                        <span id="theme-label-desktop">Mode sombre</span>
+                    </span>
+                    <span class="text-[11px] text-slate-400">Thème</span>
+                </button>
+                <p class="text-[11px] text-slate-400 dark:text-slate-500 px-1 leading-relaxed">
+                    100 % local & privé. Pensez à exporter une sauvegarde JSON régulièrement.
+                </p>
+            </div>
+        </aside>
+
+        <!-- ========================================================= -->
+        <!-- EN-TÊTE MOBILE                                            -->
+        <!-- ========================================================= -->
+        <header class="lg:hidden sticky top-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur border-b border-slate-200/80 dark:border-slate-800 px-4 py-3 transition-colors">
+            <div class="flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center text-white">
+                        <i data-lucide="trending-up" class="w-4 h-4"></i>
+                    </div>
+                    <span class="font-bold text-base tracking-tight text-slate-900 dark:text-white">MargePilot</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button type="button" onclick="toggleTheme()" aria-label="Changer de thème" class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                        <i data-lucide="sun" class="w-4 h-4 hidden dark:block text-amber-400"></i>
+                        <i data-lucide="moon" class="w-4 h-4 block dark:hidden text-indigo-600"></i>
+                    </button>
+                    <button type="button" onclick="openItemModal()" class="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-semibold shadow-sm hover:bg-indigo-700 active:scale-[0.98] transition-all">
+                        <i data-lucide="plus" class="w-4 h-4"></i>
+                        Article
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- ========================================================= -->
+        <!-- CONTENU PRINCIPAL                                         -->
+        <!-- ========================================================= -->
+        <main class="flex-1 lg:pl-64 w-full max-w-full overflow-x-hidden pb-24 lg:pb-10">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8 space-y-6">
+
+                <!-- En-tête de vue -->
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div>
+                        <h1 id="page-title" class="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Tableau de bord</h1>
+                        <p id="page-subtitle" class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Vue d'ensemble de vos performances, marges nettes et seuils fiscaux DAC7.</p>
+                    </div>
+                    <div class="hidden sm:flex items-center gap-3">
+                        <button type="button" onclick="toggleTheme()" aria-label="Changer de thème" class="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                            <i data-lucide="sun" class="w-4 h-4 hidden dark:block text-amber-400"></i>
+                            <i data-lucide="moon" class="w-4 h-4 block dark:hidden text-indigo-600"></i>
+                            <span id="theme-label-header">Sombre</span>
+                        </button>
+                        <button type="button" onclick="openItemModal()" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 active:scale-[0.98] transition-all shadow-sm shadow-indigo-500/20">
+                            <i data-lucide="plus" class="w-4 h-4"></i>
+                            Nouvel article
+                        </button>
+                    </div>
+                </div>
+
+                <!-- ========================================================= -->
+                <!-- ONGLET 1 : TABLEAU DE BORD                                -->
+                <!-- ========================================================= -->
+                <div id="view-dashboard" class="space-y-6">
+
+                    <!-- État vide accueillant quand 0 article -->
+                    <section id="dashboard-empty-banner" class="hidden bg-white dark:bg-slate-900 rounded-2xl p-6 sm:p-8 border border-indigo-200/70 dark:border-indigo-900/60 shadow-xs text-center">
+                        <div class="w-14 h-14 rounded-2xl bg-indigo-50 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto mb-4">
+                            <i data-lucide="rocket" class="w-7 h-7"></i>
+                        </div>
+                        <h2 class="text-lg font-bold text-slate-900 dark:text-white">Bienvenue sur votre espace MargePilot</h2>
+                        <p class="text-sm text-slate-500 dark:text-slate-400 max-w-lg mx-auto mt-1.5 leading-relaxed">
+                            Votre tableau de bord est prêt et vierge. Ajoutez votre premier article pour suivre automatiquement votre stock, vos marges nettes, votre ROI et vos seuils fiscaux DAC7.
+                        </p>
+                        <div class="mt-6 flex flex-wrap items-center justify-center gap-3">
+                            <button type="button" onclick="openItemModal()" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition-all shadow-sm shadow-indigo-500/20">
+                                <i data-lucide="plus" class="w-4 h-4"></i>
+                                Ajouter mon premier article
+                            </button>
+                            <button type="button" onclick="switchView('stats')" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-sm font-medium hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+                                <i data-lucide="upload" class="w-4 h-4"></i>
+                                Importer une sauvegarde
+                            </button>
+                        </div>
+                    </section>
+
+                    <!-- 4 Cartes KPI -->
+                    <section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                        <!-- KPI 1 : Bénéfice Net Total -->
+                        <div class="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200/80 dark:border-slate-800 shadow-xs">
+                            <div class="flex items-center justify-between mb-3">
+                                <span class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Bénéfice Net Total</span>
+                                <div class="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                                    <i data-lucide="wallet" class="w-4 h-4"></i>
+                                </div>
+                            </div>
+                            <div id="kpi-profit" class="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">0,00 €</div>
+                            <div class="mt-2 flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                                <span id="kpi-month-profit-badge" class="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-medium">0,00 €</span>
+                                <span>ce mois-ci</span>
+                            </div>
+                        </div>
+
+                        <!-- KPI 2 : Chiffre d'Affaires -->
+                        <div class="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200/80 dark:border-slate-800 shadow-xs">
+                            <div class="flex items-center justify-between mb-3">
+                                <span class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Chiffre d'Affaires</span>
+                                <div class="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+                                    <i data-lucide="shopping-bag" class="w-4 h-4"></i>
+                                </div>
+                            </div>
+                            <div id="kpi-revenue" class="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">0,00 €</div>
+                            <div class="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                                Sur <span id="kpi-sold-count" class="font-semibold text-slate-700 dark:text-slate-200">0</span> vente(s) finalisée(s)
+                            </div>
+                        </div>
+
+                        <!-- KPI 3 : Valeur Stock Actif -->
+                        <div class="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200/80 dark:border-slate-800 shadow-xs">
+                            <div class="flex items-center justify-between mb-3">
+                                <span class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Valeur Stock Actif</span>
+                                <div class="w-9 h-9 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                                    <i data-lucide="package" class="w-4 h-4"></i>
+                                </div>
+                            </div>
+                            <div id="kpi-stock-value" class="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">0,00 €</div>
+                            <div class="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                                <span id="kpi-active-count" class="font-semibold text-slate-700 dark:text-slate-200">0</span> article(s) en stock / en ligne
+                            </div>
+                        </div>
+
+                        <!-- KPI 4 : ROI Moyen -->
+                        <div class="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200/80 dark:border-slate-800 shadow-xs">
+                            <div class="flex items-center justify-between mb-3">
+                                <span class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">ROI Moyen</span>
+                                <div class="w-9 h-9 rounded-xl bg-violet-50 dark:bg-violet-950/60 text-violet-600 dark:text-violet-400 flex items-center justify-center">
+                                    <i data-lucide="percent" class="w-4 h-4"></i>
+                                </div>
+                            </div>
+                            <div id="kpi-roi" class="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">0 %</div>
+                            <div class="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                                Rendement moyen sur ventes
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Suivi Fiscal DAC7 France -->
+                    <section class="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200/80 dark:border-slate-800 shadow-xs">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                            <div class="flex items-center gap-3">
+                                <div class="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 flex items-center justify-center shrink-0">
+                                    <i data-lucide="shield-check" class="w-4 h-4"></i>
+                                </div>
+                                <div>
+                                    <h2 class="text-sm font-semibold text-slate-900 dark:text-white">Suivi Fiscal — Seuils DAC7 France (<span id="dac7-year">2026</span>)</h2>
+                                    <p class="text-xs text-slate-500 dark:text-slate-400">Transmission automatique des plateformes dès 30 ventes ou 2 000 € de recettes annuelles.</p>
+                                </div>
+                            </div>
+                            <span id="dac7-status-badge" class="self-start sm:self-auto inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200/70 dark:border-emerald-800/60">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                Tranquille
+                            </span>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div>
+                                <div class="flex items-center justify-between text-xs mb-1.5">
+                                    <span class="font-medium text-slate-700 dark:text-slate-300">Nombre de ventes (<span id="dac7-sales-pct">0</span> %)</span>
+                                    <span class="font-semibold text-slate-900 dark:text-white"><span id="dac7-sales-count">0</span> / 30 ventes</span>
+                                </div>
+                                <div class="w-full h-2.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                    <div id="dac7-sales-bar" class="h-full bg-indigo-600 rounded-full transition-all duration-500" style="width: 0%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex items-center justify-between text-xs mb-1.5">
+                                    <span class="font-medium text-slate-700 dark:text-slate-300">Montant cumulé (<span id="dac7-rev-pct">0</span> %)</span>
+                                    <span class="font-semibold text-slate-900 dark:text-white"><span id="dac7-revenue-amount">0,00 €</span> / 2 000 €</span>
+                                </div>
+                                <div class="w-full h-2.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                    <div id="dac7-revenue-bar" class="h-full bg-emerald-500 rounded-full transition-all duration-500" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Graphiques Chart.js -->
+                    <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <!-- Graphique 1 : Évolution CA vs Bénéfice Net -->
+                        <div class="lg:col-span-2 bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-col">
+                            <div class="mb-4">
+                                <h2 class="text-base font-semibold text-slate-900 dark:text-white">CA vs Bénéfice Net (6 derniers mois)</h2>
+                                <p class="text-xs text-slate-500 dark:text-slate-400">Basé sur les dates de vente enregistrées</p>
+                            </div>
+                            <div id="monthly-chart-empty" class="hidden flex-1 min-h-[240px] flex flex-col items-center justify-center text-center p-4 rounded-xl bg-slate-50/70 dark:bg-slate-800/40 border border-dashed border-slate-200 dark:border-slate-700">
+                                <i data-lucide="bar-chart-2" class="w-7 h-7 text-slate-400 mb-2"></i>
+                                <p class="text-sm font-medium text-slate-700 dark:text-slate-300">Aucune vente enregistrée</p>
+                                <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Ce graphique s'animera dès votre première vente finalisée.</p>
+                            </div>
+                            <div id="monthly-chart-container" class="relative w-full h-64 sm:h-72">
+                                <canvas id="monthlyChart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Graphique 2 : Répartition du Bénéfice Net par plateforme -->
+                        <div class="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-col">
+                            <div class="mb-4">
+                                <h2 class="text-base font-semibold text-slate-900 dark:text-white">Bénéfice Net par Plateforme</h2>
+                                <p class="text-xs text-slate-500 dark:text-slate-400">Répartition de vos gains nets par canal</p>
+                            </div>
+                            <div id="platform-chart-empty" class="hidden flex-1 min-h-[210px] flex flex-col items-center justify-center text-center p-4 rounded-xl bg-slate-50/70 dark:bg-slate-800/40 border border-dashed border-slate-200 dark:border-slate-700">
+                                <i data-lucide="pie-chart" class="w-7 h-7 text-slate-400 mb-2"></i>
+                                <p class="text-sm font-medium text-slate-700 dark:text-slate-300">En attente de bénéfices</p>
+                                <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Visualisez vos plateformes les plus rentables ici.</p>
+                            </div>
+                            <div id="platform-chart-container" class="relative w-full h-52 flex items-center justify-center">
+                                <canvas id="platformChart"></canvas>
+                            </div>
+                            <div id="platform-legend" class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-2 text-xs">
+                                <!-- Généré dynamiquement -->
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Derniers articles ajoutés (5 plus récents) -->
+                    <section class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-hidden">
+                        <div class="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
+                            <div>
+                                <h2 class="text-base font-semibold text-slate-900 dark:text-white">Derniers articles ajoutés</h2>
+                                <p class="text-xs text-slate-500 dark:text-slate-400">Accès rapide aux 5 entrées les plus récentes</p>
+                            </div>
+                            <button type="button" onclick="switchView('inventory')" class="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline inline-flex items-center gap-1">
+                                Tout voir
+                                <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+                            </button>
+                        </div>
+                        <div id="recent-items-list" class="divide-y divide-slate-100 dark:divide-slate-800">
+                            <!-- Généré dynamiquement -->
+                        </div>
+                        <div id="recent-items-empty" class="hidden py-10 px-4 text-center">
+                            <p class="text-sm font-medium text-slate-600 dark:text-slate-400">Aucun article pour le moment.</p>
+                            <button type="button" onclick="openItemModal()" class="mt-3 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 transition-colors">
+                                <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+                                Ajouter mon premier article
+                            </button>
+                        </div>
+                    </section>
+                </div>
+
+                <!-- ========================================================= -->
+                <!-- ONGLET 2 : STOCK & ARTICLES                               -->
+                <!-- ========================================================= -->
+                <div id="view-inventory" class="hidden space-y-5">
+                    <section class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-hidden">
+                        <!-- Barre d'outils -->
+                        <div class="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 space-y-3">
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                <div>
+                                    <h2 class="text-base font-semibold text-slate-900 dark:text-white">Inventaire complet</h2>
+                                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5"><span id="filtered-count">0</span> article(s) affiché(s)</p>
+                                </div>
+                                <button type="button" onclick="openItemModal()" class="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-xs font-semibold text-white transition-colors shadow-sm shadow-indigo-500/20">
+                                    <i data-lucide="plus" class="w-4 h-4"></i>
+                                    Nouvel article
+                                </button>
+                            </div>
+
+                            <!-- Filtres & Recherche -->
+                            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+                                <div class="relative">
+                                    <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+                                    <input type="text" id="search-input" oninput="renderInventory()" placeholder="Rechercher (titre, catégorie, notes)..." class="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+                                </div>
+                                <select id="filter-status" onchange="renderInventory()" class="px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+                                    <option value="ALL">Statut : Tous</option>
+                                    <option value="En stock">En stock</option>
+                                    <option value="En ligne">En ligne</option>
+                                    <option value="Vendu">Vendu</option>
+                                </select>
+                                <select id="filter-platform" onchange="renderInventory()" class="px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+                                    <option value="ALL">Plateforme : Toutes</option>
+                                    <option value="Vinted">Vinted</option>
+                                    <option value="Leboncoin">Leboncoin</option>
+                                    <option value="eBay">eBay</option>
+                                    <option value="Vestiaire Collective">Vestiaire Collective</option>
+                                    <option value="Autre">Autre</option>
+                                </select>
+                                <select id="sort-by" onchange="renderInventory()" class="px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+                                    <option value="recent">Tri : Plus récents</option>
+                                    <option value="margin_desc">Tri : Marge décroissante</option>
+                                    <option value="roi_desc">Tri : ROI décroissant</option>
+                                    <option value="buy_desc">Tri : Prix d'achat décroissant</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Vue Tableau (Desktop) -->
+                        <div id="inventory-desktop-wrapper" class="hidden md:block overflow-x-auto">
+                            <table class="w-full text-left border-collapse min-w-[920px]">
+                                <thead>
+                                    <tr class="bg-slate-50/80 dark:bg-slate-800/50 border-b border-slate-200/80 dark:border-slate-800 text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                        <th class="py-3.5 px-5">Article & Catégorie</th>
+                                        <th class="py-3.5 px-3">Plateforme</th>
+                                        <th class="py-3.5 px-3">État</th>
+                                        <th class="py-3.5 px-3">Statut</th>
+                                        <th class="py-3.5 px-3 text-right">Achat</th>
+                                        <th class="py-3.5 px-3 text-right">Vente</th>
+                                        <th class="py-3.5 px-3 text-right">Frais</th>
+                                        <th class="py-3.5 px-3 text-right">Marge Nette</th>
+                                        <th class="py-3.5 px-5 text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="inventory-tbody" class="divide-y divide-slate-100 dark:divide-slate-800 text-sm">
+                                    <!-- Généré dynamiquement -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Vue Cartes (Mobile) -->
+                        <div id="inventory-mobile-cards" class="md:hidden divide-y divide-slate-100 dark:divide-slate-800">
+                            <!-- Généré dynamiquement -->
+                        </div>
+
+                        <!-- État vide Stock -->
+                        <div id="inventory-empty-state" class="hidden py-16 px-4 text-center">
+                            <div class="w-14 h-14 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto mb-4">
+                                <i data-lucide="package-open" class="w-7 h-7"></i>
+                            </div>
+                            <p id="inventory-empty-title" class="text-base font-semibold text-slate-800 dark:text-white">Votre stock est vide</p>
+                            <p id="inventory-empty-desc" class="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto">Enregistrez votre premier article pour suivre vos coûts, vos frais et votre marge nette.</p>
+                            <button type="button" onclick="openItemModal()" class="mt-5 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 transition-colors shadow-sm shadow-indigo-500/20">
+                                <i data-lucide="plus" class="w-4 h-4"></i>
+                                Ajouter mon premier article
+                            </button>
+                        </div>
+                    </section>
+                </div>
+
+                <!-- ========================================================= -->
+                <!-- ONGLET 3 : STATISTIQUES & DONNÉES                         -->
+                <!-- ========================================================= -->
+                <div id="view-stats" class="hidden space-y-6">
+
+                    <!-- 1. Tableau récapitulatif mensuel -->
+                    <section class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-hidden">
+                        <div class="p-5 border-b border-slate-100 dark:border-slate-800">
+                            <h2 class="text-base font-semibold text-slate-900 dark:text-white">Récapitulatif mensuel détaillé</h2>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Performances mensuelles calculées sur vos ventes finalisées.</p>
+                        </div>
+
+                        <div id="stats-monthly-empty" class="hidden py-12 px-4 text-center">
+                            <div class="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center mx-auto mb-3">
+                                <i data-lucide="calendar-x" class="w-6 h-6"></i>
+                            </div>
+                            <p class="text-sm font-semibold text-slate-800 dark:text-slate-200">Aucune vente enregistrée</p>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto">Dès que vous passez un article au statut « Vendu », votre bilan mensuel apparaît ici.</p>
+                            <button type="button" onclick="openItemModal()" class="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 transition-colors">
+                                <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+                                Ajouter mon premier article
+                            </button>
+                        </div>
+
+                        <div id="stats-monthly-wrapper" class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse min-w-[680px]">
+                                <thead>
+                                    <tr class="bg-slate-50/80 dark:bg-slate-800/50 border-b border-slate-200/80 dark:border-slate-800 text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                        <th class="py-3.5 px-5">Mois</th>
+                                        <th class="py-3.5 px-4 text-right">Ventes</th>
+                                        <th class="py-3.5 px-4 text-right">CA</th>
+                                        <th class="py-3.5 px-4 text-right">Achat + Frais</th>
+                                        <th class="py-3.5 px-4 text-right">Bénéfice Net</th>
+                                        <th class="py-3.5 px-5 text-right">Marge moy. (%)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="monthly-summary-tbody" class="divide-y divide-slate-100 dark:divide-slate-800 text-sm">
+                                    <!-- Généré dynamiquement -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+
+                    <!-- 2. Performance par plateforme + Top 5 ventes rentables -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- Performance par plateforme -->
+                        <section class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-hidden flex flex-col">
+                            <div class="p-5 border-b border-slate-100 dark:border-slate-800">
+                                <h2 class="text-base font-semibold text-slate-900 dark:text-white">Performance par plateforme</h2>
+                                <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Comparatif des canaux sur vos ventes terminées.</p>
+                            </div>
+                            <div id="stats-platform-empty" class="hidden flex-1 py-10 px-4 text-center text-xs text-slate-500 dark:text-slate-400">
+                                Aucune donnée de plateforme disponible pour le moment.
+                            </div>
+                            <div id="stats-platform-wrapper" class="overflow-x-auto">
+                                <table class="w-full text-left border-collapse">
+                                    <thead>
+                                        <tr class="bg-slate-50/80 dark:bg-slate-800/50 border-b border-slate-200/80 dark:border-slate-800 text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                            <th class="py-3 px-4">Plateforme</th>
+                                            <th class="py-3 px-3 text-right">Ventes</th>
+                                            <th class="py-3 px-3 text-right">CA</th>
+                                            <th class="py-3 px-4 text-right">Gain moy./vente</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="platform-perf-tbody" class="divide-y divide-slate-100 dark:divide-slate-800 text-sm">
+                                        <!-- Généré dynamiquement -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </section>
+
+                        <!-- Top 5 ventes les plus rentables -->
+                        <section class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-hidden flex flex-col">
+                            <div class="p-5 border-b border-slate-100 dark:border-slate-800">
+                                <h2 class="text-base font-semibold text-slate-900 dark:text-white">Top 5 ventes les plus rentables</h2>
+                                <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Vos meilleures opérations classées par bénéfice net.</p>
+                            </div>
+                            <div id="top-sales-empty" class="hidden flex-1 py-10 px-4 text-center text-xs text-slate-500 dark:text-slate-400">
+                                Vos 5 meilleures ventes s'afficheront ici automatiquement.
+                            </div>
+                            <div id="top-sales-list" class="divide-y divide-slate-100 dark:divide-slate-800">
+                                <!-- Généré dynamiquement -->
+                            </div>
+                        </section>
+                    </div>
+
+                    <!-- 3. Panneau Sauvegarde & Export -->
+                    <section class="bg-white dark:bg-slate-900 rounded-2xl p-5 sm:p-6 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-5">
+                        <div>
+                            <h2 class="text-base font-semibold text-slate-900 dark:text-white">Sauvegarde & Export des données</h2>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Exportez votre comptabilité pour Excel ou créez une copie de sécurité de votre base locale.</p>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                            <!-- Export CSV -->
+                            <button type="button" onclick="exportCSV()" class="flex items-center gap-3 p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/50 hover:bg-indigo-50/60 dark:hover:bg-indigo-950/40 hover:border-indigo-300 dark:hover:border-indigo-700 text-left transition-all">
+                                <div class="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                                    <i data-lucide="file-spreadsheet" class="w-5 h-5"></i>
+                                </div>
+                                <div>
+                                    <span class="block text-sm font-semibold text-slate-900 dark:text-white">Export CSV</span>
+                                    <span class="block text-[11px] text-slate-500 dark:text-slate-400">Compatible Excel FR</span>
+                                </div>
+                            </button>
+
+                            <!-- Export JSON -->
+                            <button type="button" onclick="exportJSON()" class="flex items-center gap-3 p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/50 hover:bg-indigo-50/60 dark:hover:bg-indigo-950/40 hover:border-indigo-300 dark:hover:border-indigo-700 text-left transition-all">
+                                <div class="w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                                    <i data-lucide="download" class="w-5 h-5"></i>
+                                </div>
+                                <div>
+                                    <span class="block text-sm font-semibold text-slate-900 dark:text-white">Sauvegarde JSON</span>
+                                    <span class="block text-[11px] text-slate-500 dark:text-slate-400">Copie complète</span>
+                                </div>
+                            </button>
+
+                            <!-- Import JSON -->
+                            <button type="button" onclick="triggerImportJSON()" class="flex items-center gap-3 p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/50 hover:bg-indigo-50/60 dark:hover:bg-indigo-950/40 hover:border-indigo-300 dark:hover:border-indigo-700 text-left transition-all">
+                                <div class="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-400 flex items-center justify-center shrink-0">
+                                    <i data-lucide="upload" class="w-5 h-5"></i>
+                                </div>
+                                <div>
+                                    <span class="block text-sm font-semibold text-slate-900 dark:text-white">Restaurer JSON</span>
+                                    <span class="block text-[11px] text-slate-500 dark:text-slate-400">Importer un fichier</span>
+                                </div>
+                            </button>
+                            <input type="file" id="json-import-input" accept=".json,application/json" class="hidden" onchange="handleImportJSON(event)">
+
+                            <!-- Réinitialiser tout -->
+                            <button type="button" onclick="openResetDoubleConfirm()" class="flex items-center gap-3 p-4 rounded-xl border border-red-200/80 dark:border-red-900/60 bg-red-50/50 dark:bg-red-950/30 hover:bg-red-100/70 dark:hover:bg-red-950/60 text-left transition-all">
+                                <div class="w-10 h-10 rounded-xl bg-red-100 dark:bg-red-900/60 text-red-600 dark:text-red-400 flex items-center justify-center shrink-0">
+                                    <i data-lucide="trash-2" class="w-5 h-5"></i>
+                                </div>
+                                <div>
+                                    <span class="block text-sm font-semibold text-red-700 dark:text-red-400">Tout réinitialiser</span>
+                                    <span class="block text-[11px] text-red-500/80 dark:text-red-400/70">Double confirmation</span>
+                                </div>
+                            </button>
+                        </div>
+                    </section>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- ========================================================= -->
+    <!-- BARRE DE NAVIGATION FIXE EN BAS (MOBILE)                  -->
+    <!-- ========================================================= -->
+    <nav class="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur border-t border-slate-200 dark:border-slate-800 px-2 py-1.5" aria-label="Navigation mobile">
+        <div class="grid grid-cols-3 gap-1 max-w-md mx-auto">
+            <button type="button" onclick="switchView('dashboard')" id="mobile-nav-dashboard" class="mobile-nav-btn flex flex-col items-center justify-center py-2 px-1 rounded-xl text-[11px] font-semibold transition-colors">
+                <i data-lucide="layout-dashboard" class="w-5 h-5 mb-0.5"></i>
+                <span>Tableau</span>
+            </button>
+            <button type="button" onclick="switchView('inventory')" id="mobile-nav-inventory" class="mobile-nav-btn flex flex-col items-center justify-center py-2 px-1 rounded-xl text-[11px] font-semibold transition-colors">
+                <i data-lucide="package" class="w-5 h-5 mb-0.5"></i>
+                <span>Stock</span>
+            </button>
+            <button type="button" onclick="switchView('stats')" id="mobile-nav-stats" class="mobile-nav-btn flex flex-col items-center justify-center py-2 px-1 rounded-xl text-[11px] font-semibold transition-colors">
+                <i data-lucide="bar-chart-3" class="w-5 h-5 mb-0.5"></i>
+                <span>Stats</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- ========================================================= -->
+    <!-- MODALE AJOUT / ÉDITION D'ARTICLE                          -->
+    <!-- ========================================================= -->
+    <div id="item-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
+        <div class="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 w-full max-w-2xl my-6 overflow-hidden">
+            <div class="px-5 sm:px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                <div>
+                    <h3 id="modal-title" class="text-lg font-bold text-slate-900 dark:text-white">Nouvel article</h3>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Calcul automatique des frais, de la marge nette et du ROI.</p>
+                </div>
+                <button type="button" onclick="closeItemModal()" aria-label="Fermer" class="p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <form id="item-form" onsubmit="handleItemSubmit(event)" class="p-5 sm:p-6 space-y-5 max-h-[82vh] overflow-y-auto">
+                <input type="hidden" id="item-id">
+
+                <!-- Nom & Catégorie -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div class="sm:col-span-2">
+                        <label for="item-name" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Nom de l'article *</label>
+                        <input type="text" id="item-name" required placeholder="Ex: Nike Dunk Low Panda 42" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label for="item-category" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Catégorie</label>
+                        <select id="item-category" class="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+                            <option value="Vêtements">Vêtements</option>
+                            <option value="Sneakers">Sneakers</option>
+                            <option value="Tech">Tech</option>
+                            <option value="LEGO/Jouets">LEGO / Jouets</option>
+                            <option value="Maison">Maison</option>
+                            <option value="Autre">Autre</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- État, Plateforme, Statut -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                        <label for="item-condition" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">État</label>
+                        <select id="item-condition" class="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+                            <option value="Neuf avec étiquette">Neuf avec étiquette</option>
+                            <option value="Très bon état" selected>Très bon état</option>
+                            <option value="Bon état">Bon état</option>
+                            <option value="Satisfaisant">Satisfaisant</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="item-platform" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Plateforme</label>
+                        <select id="item-platform" onchange="handlePlatformOrPriceChange()" class="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+                            <option value="Vinted">Vinted (0 %)</option>
+                            <option value="Leboncoin">Leboncoin (0 %)</option>
+                            <option value="eBay">eBay (11 %)</option>
+                            <option value="Vestiaire Collective">Vestiaire Collective (15 %)</option>
+                            <option value="Autre">Autre</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="item-status" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Statut</label>
+                        <select id="item-status" onchange="toggleSaleDateField()" class="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+                            <option value="En stock">En stock</option>
+                            <option value="En ligne">En ligne</option>
+                            <option value="Vendu">Vendu</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Dates -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label for="item-purchase-date" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Date d'achat *</label>
+                        <input type="date" id="item-purchase-date" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+                    </div>
+                    <div id="sale-date-wrapper" class="hidden">
+                        <label for="item-sale-date" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Date de vente</label>
+                        <input type="date" id="item-sale-date" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+                    </div>
+                </div>
+
+                <!-- Bloc Financier Intelligent -->
+                <div class="rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 p-4 space-y-4">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <span class="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">Bloc Financier</span>
+                        <label class="inline-flex items-center gap-2 cursor-pointer select-none">
+                            <input type="checkbox" id="auto-fee-toggle" checked onchange="handlePlatformOrPriceChange()" class="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
+                            <span class="text-xs font-medium text-slate-600 dark:text-slate-300">Calcul auto des frais plateforme</span>
+                        </label>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                        <div>
+                            <label for="item-buy-price" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Prix d'achat (€) *</label>
+                            <input type="number" step="0.01" min="0" id="item-buy-price" required oninput="updateLivePreview()" placeholder="0.00" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+                        </div>
+                        <div>
+                            <label for="item-sell-price" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Prix de vente visé ou réel (€)</label>
+                            <input type="number" step="0.01" min="0" id="item-sell-price" oninput="handlePlatformOrPriceChange()" placeholder="0.00" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+                        </div>
+                        <div>
+                            <label for="item-platform-fee" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Frais plateforme (€)</label>
+                            <input type="number" step="0.01" min="0" id="item-platform-fee" oninput="handleManualFeeInput()" value="0" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+                        </div>
+                        <div>
+                            <label for="item-shipping-fee" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Frais port / emballage (€)</label>
+                            <input type="number" step="0.01" min="0" id="item-shipping-fee" oninput="updateLivePreview()" value="0" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+                        </div>
+                    </div>
+
+                    <!-- Prévisualisation en direct -->
+                    <div class="grid grid-cols-3 gap-2.5 pt-1 text-center">
+                        <div class="bg-white dark:bg-slate-900 rounded-xl p-2.5 border border-slate-200/70 dark:border-slate-700">
+                            <span class="block text-[11px] text-slate-500 dark:text-slate-400">Coût total</span>
+                            <span id="preview-costs" class="text-sm sm:text-base font-bold text-slate-800 dark:text-slate-100">0,00 €</span>
+                        </div>
+                        <div class="bg-white dark:bg-slate-900 rounded-xl p-2.5 border border-slate-200/70 dark:border-slate-700">
+                            <span class="block text-[11px] text-slate-500 dark:text-slate-400">Marge Nette</span>
+                            <span id="preview-margin" class="text-sm sm:text-base font-bold text-emerald-600 dark:text-emerald-400">0,00 €</span>
+                        </div>
+                        <div class="bg-white dark:bg-slate-900 rounded-xl p-2.5 border border-slate-200/70 dark:border-slate-700">
+                            <span class="block text-[11px] text-slate-500 dark:text-slate-400">ROI</span>
+                            <span id="preview-roi" class="text-sm sm:text-base font-bold text-emerald-600 dark:text-emerald-400">0 %</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Notes -->
+                <div>
+                    <label for="item-notes" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Notes (taille, lieu de stockage, défauts...)</label>
+                    <textarea id="item-notes" rows="3" placeholder="Ex: Taille M, boîte carton #2, légère trace sur la semelle..." class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 resize-none"></textarea>
+                </div>
+
+                <!-- Boutons -->
+                <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                    <button type="button" onclick="closeItemModal()" class="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                        Annuler
+                    </button>
+                    <button type="submit" class="px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition-colors shadow-sm shadow-indigo-500/20">
+                        Enregistrer
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ========================================================= -->
+    <!-- MINI-MODALE : MARQUER VENDU RAPIDE                        -->
+    <!-- ========================================================= -->
+    <div id="quick-sell-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+        <div class="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 w-full max-w-sm overflow-hidden">
+            <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                <h3 class="text-base font-bold text-slate-900 dark:text-white">Finaliser la vente</h3>
+                <button type="button" onclick="closeQuickSellModal()" class="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+            <form id="quick-sell-form" onsubmit="handleQuickSellSubmit(event)" class="p-5 space-y-4">
+                <input type="hidden" id="quick-sell-id">
+                <p id="quick-sell-name" class="text-sm font-semibold text-indigo-600 dark:text-indigo-400 truncate"></p>
+                <div>
+                    <label for="quick-sell-price" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Prix de vente final (€) *</label>
+                    <input type="number" step="0.01" min="0" id="quick-sell-price" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500">
+                </div>
+                <div>
+                    <label for="quick-sell-date" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Date de vente *</label>
+                    <input type="date" id="quick-sell-date" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500">
+                </div>
+                <div class="flex items-center justify-end gap-2.5 pt-2">
+                    <button type="button" onclick="closeQuickSellModal()" class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800">
+                        Annuler
+                    </button>
+                    <button type="submit" class="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700">
+                        Valider la vente
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ========================================================= -->
+    <!-- MODALE DE CONFIRMATION (SIMPLE & DOUBLE CONFIRMATION)     -->
+    <!-- ========================================================= -->
+    <div id="confirm-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+        <div class="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 w-full max-w-sm p-6 text-center space-y-4">
+            <div class="w-12 h-12 rounded-2xl bg-red-50 dark:bg-red-950/60 text-red-600 dark:text-red-400 flex items-center justify-center mx-auto">
+                <i data-lucide="alert-triangle" class="w-6 h-6"></i>
+            </div>
+            <div>
+                <h3 id="confirm-title" class="text-base font-bold text-slate-900 dark:text-white">Confirmer l'action</h3>
+                <p id="confirm-message" class="text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed">Cette action est irréversible.</p>
+            </div>
+            <div class="flex items-center justify-center gap-3 pt-2">
+                <button type="button" onclick="closeConfirmModal()" class="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                    Annuler
+                </button>
+                <button type="button" id="confirm-action-btn" class="flex-1 px-4 py-2.5 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700 transition-colors">
+                    Confirmer
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================================= -->
+    <!-- NOTIFICATION TOAST DISCRÈTE                               -->
+    <!-- ========================================================= -->
+    <div id="toast" class="fixed bottom-20 lg:bottom-6 right-4 sm:right-6 z-50 transform translate-y-16 opacity-0 transition-all duration-300 pointer-events-none">
+        <div class="bg-slate-900 dark:bg-slate-800 text-white px-4 py-3 rounded-xl shadow-lg border border-slate-700/50 flex items-center gap-2.5 text-sm font-medium">
+            <i id="toast-icon" data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400 shrink-0"></i>
+            <span id="toast-message">Action effectuée</span>
+        </div>
+    </div>
+
+    <!-- ========================================================= -->
+    <!-- SCRIPT APPLICATIF MODULAIRE                               -->
+    <!-- ========================================================= -->
+    <script>
+        'use strict';
+
+        // ==========================================
+        // 1. CONSTANTES & ÉTAT GLOBAL
+        // ==========================================
+        const STORAGE_KEY = 'margepilot_v2_items';
+        const THEME_KEY = 'margepilot_theme';
+
+        const PLATFORM_FEE_RATES = {
+            'Vinted': 0,
+            'Leboncoin': 0,
+            'eBay': 0.11,
+            'Vestiaire Collective': 0.15,
+            'Autre': 0
+        };
+
+        const PLATFORM_COLORS = {
+            'Vinted': '#09B1BA',
+            'Leboncoin': '#FF6E14',
+            'eBay': '#4F46E5',
+            'Vestiaire Collective': '#64748B',
+            'Autre': '#94A3B8'
+        };
+
+        let items = [];
+        let currentView = 'dashboard';
+        let monthlyChartInstance = null;
+        let platformChartInstance = null;
+        let confirmCallback = null;
+        let confirmStep = 1;
+        let isDoubleConfirmMode = false;
+        let toastTimer = null;
+
+        // ==========================================
+        // 2. UTILITAIRES MATHÉMATIQUES & SÉCURITÉ
+        // ==========================================
+        function round2(value) {
+            const num = Number(value);
+            if (!Number.isFinite(num)) return 0;
+            return Math.round((num + Number.EPSILON) * 100) / 100;
+        }
+
+        function safePositive(value) {
+            const num = round2(value);
+            return num < 0 ? 0 : num;
+        }
+
+        function computeMetrics(item) {
+            const buyPrice = safePositive(item.buyPrice);
+            const sellPrice = safePositive(item.sellPrice);
+            const platformFee = safePositive(item.platformFee);
+            const shippingFee = safePositive(item.shippingFee);
+            const totalFees = round2(platformFee + shippingFee);
+            const totalCosts = round2(buyPrice + totalFees);
+            const margin = round2(sellPrice - totalCosts);
+            const roi = buyPrice > 0 ? round2((margin / buyPrice) * 100) : 0;
+            const marginPct = sellPrice > 0 ? round2((margin / sellPrice) * 100) : 0;
+
+            return { buyPrice, sellPrice, platformFee, shippingFee, totalFees, totalCosts, margin, roi, marginPct };
+        }
+
+        function formatEuro(amount) {
+            return new Intl.NumberFormat('fr-FR', {
+                style: 'currency',
+                currency: 'EUR',
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }).format(round2(amount));
+        }
+
+        function formatDateFR(dateStr) {
+            if (!dateStr || typeof dateStr !== 'string') return '—';
+            const parts = dateStr.split('-');
+            if (parts.length !== 3) return escapeHtml(dateStr);
+            return `${parts[2]}/${parts[1]}/${parts[0]}`;
+        }
+
+        function getTodayISO() {
+            const d = new Date();
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${y}-${m}-${day}`;
+        }
+
+        function escapeHtml(str) {
+            return String(str == null ? '' : str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function getEffectiveSaleDate(item) {
+            return item.saleDate || item.purchaseDate || '';
+        }
+
+        // ==========================================
+        // 3. PERSISTANCE LOCALSTORAGE (100 % VIERGE)
+        // ==========================================
+        function loadItems() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (!raw) {
+                    items = [];
+                    return;
+                }
+                const parsed = JSON.parse(raw);
+                if (Array.isArray(parsed)) {
+                    items = parsed.map(sanitizeItem).filter(Boolean);
+                } else {
+                    items = [];
+                }
+            } catch (e) {
+                console.error('Erreur lecture localStorage:', e);
+                items = [];
+            }
+        }
+
+        function sanitizeItem(raw) {
+            if (!raw || typeof raw !== 'object') return null;
+            const name = String(raw.name || '').trim();
+            if (!name) return null;
+
+            const status = ['En stock', 'En ligne', 'Vendu'].includes(raw.status) ? raw.status : 'En stock';
+            const platform = ['Vinted', 'Leboncoin', 'eBay', 'Vestiaire Collective', 'Autre'].includes(raw.platform) ? raw.platform : 'Autre';
+
+            return {
+                id: String(raw.id || 'item-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7)),
+                name,
+                category: String(raw.category || 'Autre'),
+                condition: String(raw.condition || 'Très bon état'),
+                platform,
+                status,
+                purchaseDate: String(raw.purchaseDate || getTodayISO()),
+                saleDate: status === 'Vendu' ? String(raw.saleDate || raw.purchaseDate || getTodayISO()) : '',
+                buyPrice: safePositive(raw.buyPrice),
+                sellPrice: safePositive(raw.sellPrice),
+                platformFee: safePositive(raw.platformFee),
+                shippingFee: safePositive(raw.shippingFee),
+                notes: String(raw.notes || ''),
+                createdAt: Number(raw.createdAt) || Date.now()
+            };
+        }
+
+        function saveItems() {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+            } catch (e) {
+                console.error('Erreur écriture localStorage:', e);
+                showToast('Erreur lors de la sauvegarde locale', true);
+            }
+        }
+
+        // ==========================================
+        // 4. MODE CLAIR / SOMBRE
+        // ==========================================
+        function isDarkMode() {
+            return document.documentElement.classList.contains('dark');
+        }
+
+        function syncThemeUI() {
+            const dark = isDarkMode();
+            const labelDesktop = document.getElementById('theme-label-desktop');
+            const labelHeader = document.getElementById('theme-label-header');
+            const metaTheme = document.getElementById('meta-theme-color');
+
+            if (labelDesktop) labelDesktop.textContent = dark ? 'Mode clair' : 'Mode sombre';
+            if (labelHeader) labelHeader.textContent = dark ? 'Clair' : 'Sombre';
+            if (metaTheme) metaTheme.setAttribute('content', dark ? '#020617' : '#F8FAFC');
+        }
+
+        function toggleTheme() {
+            const html = document.documentElement;
+            const willBeDark = !html.classList.contains('dark');
+            html.classList.toggle('dark', willBeDark);
+            try {
+                localStorage.setItem(THEME_KEY, willBeDark ? 'dark' : 'light');
+            } catch (e) {}
+            syncThemeUI();
+            renderCharts();
+        }
+
+        // ==========================================
+        // 5. NAVIGATION (3 ONGLETS)
+        // ==========================================
+        function switchView(view) {
+            currentView = view;
+
+            const viewMap = {
+                dashboard: {
+                    el: document.getElementById('view-dashboard'),
+                    title: 'Tableau de bord',
+                    subtitle: "Vue d'ensemble de vos performances, marges nettes et seuils fiscaux DAC7."
+                },
+                inventory: {
+                    el: document.getElementById('view-inventory'),
+                    title: 'Stock & Articles',
+                    subtitle: 'Gérez votre inventaire, filtrez vos annonces et enregistrez vos ventes en un clic.'
+                },
+                stats: {
+                    el: document.getElementById('view-stats'),
+                    title: 'Statistiques & Données',
+                    subtitle: 'Bilans mensuels, performances par plateforme, exports CSV et sauvegardes JSON.'
+                }
+            };
+
+            Object.entries(viewMap).forEach(([key, cfg]) => {
+                if (cfg.el) cfg.el.classList.toggle('hidden', key !== view);
+            });
+
+            const current = viewMap[view] || viewMap.dashboard;
+            document.getElementById('page-title').textContent = current.title;
+            document.getElementById('page-subtitle').textContent = current.subtitle;
+
+            // Boutons Desktop
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                const isActive = btn.id === `nav-${view}`;
+                btn.className = isActive
+                    ? 'nav-btn w-full flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all bg-indigo-50 dark:bg-indigo-950/70 text-indigo-700 dark:text-indigo-300'
+                    : 'nav-btn w-full flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/70 hover:text-slate-900 dark:hover:text-white';
+            });
+
+            // Boutons Mobile (barre fixe en bas)
+            document.querySelectorAll('.mobile-nav-btn').forEach(btn => {
+                const isActive = btn.id === `mobile-nav-${view}`;
+                btn.className = isActive
+                    ? 'mobile-nav-btn flex flex-col items-center justify-center py-2 px-1 rounded-xl text-[11px] font-semibold transition-colors bg-indigo-50 dark:bg-indigo-950/70 text-indigo-700 dark:text-indigo-300'
+                    : 'mobile-nav-btn flex flex-col items-center justify-center py-2 px-1 rounded-xl text-[11px] font-medium transition-colors text-slate-500 dark:text-slate-400';
+            });
+
+            if (view === 'dashboard') {
+                setTimeout(() => {
+                    if (monthlyChartInstance) monthlyChartInstance.resize();
+                    if (platformChartInstance) platformChartInstance.resize();
+                }, 40);
+            }
+
+            lucide.createIcons();
+        }
+
+        // ==========================================
+        // 6. RENDU GLOBAL
+        // ==========================================
+        function renderAll() {
+            renderKPIsAndDAC7();
+            renderCharts();
+            renderRecentItems();
+            renderInventory();
+            renderStatsTables();
+
+            // Badge stock sidebar
+            const activeCount = items.filter(i => i.status !== 'Vendu').length;
+            const badge = document.getElementById('sidebar-stock-badge');
+            if (badge) badge.textContent = activeCount;
+
+            // Bandeau vide du tableau de bord
+            const emptyBanner = document.getElementById('dashboard-empty-banner');
+            if (emptyBanner) {
+                emptyBanner.classList.toggle('hidden', items.length > 0);
+            }
+
+            lucide.createIcons();
+        }
+
+        function renderKPIsAndDAC7() {
+            const now = new Date();
+            const currentYear = now.getFullYear();
+            const currentMonthPrefix = `${currentYear}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+            const currentYearPrefix = `${currentYear}-`;
+
+            let totalProfit = 0;
+            let monthProfit = 0;
+            let totalRevenue = 0;
+            let soldCount = 0;
+            let activeStockValue = 0;
+            let activeStockCount = 0;
+            let roiSum = 0;
+            let dac7SalesCount = 0;
+            let dac7Revenue = 0;
+
+            items.forEach(item => {
+                const m = computeMetrics(item);
+                if (item.status === 'Vendu') {
+                    totalProfit = round2(totalProfit + m.margin);
+                    totalRevenue = round2(totalRevenue + m.sellPrice);
+                    soldCount++;
+                    roiSum += m.roi;
+
+                    const saleDate = getEffectiveSaleDate(item);
+                    if (saleDate.startsWith(currentMonthPrefix)) {
+                        monthProfit = round2(monthProfit + m.margin);
+                    }
+                    if (saleDate.startsWith(currentYearPrefix)) {
+                        dac7SalesCount++;
+                        dac7Revenue = round2(dac7Revenue + m.sellPrice);
+                    }
+                } else {
+                    activeStockValue = round2(activeStockValue + m.buyPrice);
+                    activeStockCount++;
+                }
+            });
+
+            const avgRoi = soldCount > 0 ? round2(roiSum / soldCount) : 0;
+
+            const profitEl = document.getElementById('kpi-profit');
+            profitEl.textContent = formatEuro(totalProfit);
+            profitEl.className = `text-2xl font-bold tracking-tight ${totalProfit > 0 ? 'text-emerald-600 dark:text-emerald-400' : totalProfit < 0 ? 'text-red-500' : 'text-slate-900 dark:text-white'}`;
+
+            const monthBadge = document.getElementById('kpi-month-profit-badge');
+            monthBadge.textContent = `${monthProfit > 0 ? '+' : ''}${formatEuro(monthProfit)}`;
+            monthBadge.className = `inline-flex items-center px-2 py-0.5 rounded-md font-medium ${
+                monthProfit > 0
+                    ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400'
+                    : monthProfit < 0
+                        ? 'bg-red-50 dark:bg-red-950/60 text-red-600 dark:text-red-400'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+            }`;
+
+            document.getElementById('kpi-revenue').textContent = formatEuro(totalRevenue);
+            document.getElementById('kpi-sold-count').textContent = soldCount;
+            document.getElementById('kpi-stock-value').textContent = formatEuro(activeStockValue);
+            document.getElementById('kpi-active-count').textContent = activeStockCount;
+
+            const roiEl = document.getElementById('kpi-roi');
+            roiEl.textContent = `${avgRoi.toFixed(1)} %`;
+            roiEl.className = `text-2xl font-bold tracking-tight ${avgRoi < 0 ? 'text-red-500' : 'text-slate-900 dark:text-white'}`;
+
+            // Module DAC7 France
+            document.getElementById('dac7-year').textContent = currentYear;
+            document.getElementById('dac7-sales-count').textContent = dac7SalesCount;
+            document.getElementById('dac7-revenue-amount').textContent = formatEuro(dac7Revenue);
+
+            const salesPct = Math.min(100, Math.round((dac7SalesCount / 30) * 100));
+            const revPct = Math.min(100, Math.round((dac7Revenue / 2000) * 100));
+
+            document.getElementById('dac7-sales-pct').textContent = salesPct;
+            document.getElementById('dac7-rev-pct').textContent = revPct;
+
+            const salesBar = document.getElementById('dac7-sales-bar');
+            const revBar = document.getElementById('dac7-revenue-bar');
+            salesBar.style.width = `${salesPct}%`;
+            revBar.style.width = `${revPct}%`;
+
+            salesBar.className = `h-full rounded-full transition-all duration-500 ${salesPct >= 100 ? 'bg-red-500' : salesPct >= 70 ? 'bg-amber-500' : 'bg-indigo-600'}`;
+            revBar.className = `h-full rounded-full transition-all duration-500 ${revPct >= 100 ? 'bg-red-500' : revPct >= 70 ? 'bg-amber-500' : 'bg-emerald-500'}`;
+
+            const statusBadge = document.getElementById('dac7-status-badge');
+            if (dac7SalesCount >= 30 || dac7Revenue >= 2000) {
+                statusBadge.className = 'self-start sm:self-auto inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-red-50 dark:bg-red-950/60 text-red-700 dark:text-red-400 border border-red-200/70 dark:border-red-800/60';
+                statusBadge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-red-500"></span> Seuil atteint';
+            } else if (salesPct >= 70 || revPct >= 70) {
+                statusBadge.className = 'self-start sm:self-auto inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 border border-amber-200/70 dark:border-amber-800/60';
+                statusBadge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span> Attention';
+            } else {
+                statusBadge.className = 'self-start sm:self-auto inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200/70 dark:border-emerald-800/60';
+                statusBadge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Tranquille';
+            }
+        }
+
+        function getLast6MonthsBuckets() {
+            const now = new Date();
+            const monthNames = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
+            const buckets = [];
+
+            for (let i = 5; i >= 0; i--) {
+                const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                const label = `${monthNames[d.getMonth()]} ${d.getFullYear()}`;
+                buckets.push({ key, label, sales: 0, revenue: 0, costs: 0, profit: 0 });
+            }
+            return buckets;
+        }
+
+        function renderCharts() {
+            const dark = isDarkMode();
+            const tickColor = dark ? '#94A3B8' : '#64748B';
+            const gridColor = dark ? '#1E293B' : '#F1F5F9';
+            const borderColor = dark ? '#0F172A' : '#FFFFFF';
+
+            const soldItems = items.filter(i => i.status === 'Vendu');
+            const hasSales = soldItems.length > 0;
+
+            // --- GRAPHIQUE 1 : CA vs Bénéfice Net (6 derniers mois) ---
+            const monthlyEmpty = document.getElementById('monthly-chart-empty');
+            const monthlyContainer = document.getElementById('monthly-chart-container');
+
+            if (monthlyChartInstance) {
+                monthlyChartInstance.destroy();
+                monthlyChartInstance = null;
+            }
+
+            if (!hasSales) {
+                monthlyEmpty.classList.remove('hidden');
+                monthlyContainer.classList.add('hidden');
+            } else {
+                monthlyEmpty.classList.add('hidden');
+                monthlyContainer.classList.remove('hidden');
+
+                const monthsData = getLast6MonthsBuckets();
+                soldItems.forEach(item => {
+                    const m = computeMetrics(item);
+                    const dateStr = getEffectiveSaleDate(item);
+                    const bucket = monthsData.find(b => b.key === dateStr.slice(0, 7));
+                    if (bucket) {
+                        bucket.sales++;
+                        bucket.revenue = round2(bucket.revenue + m.sellPrice);
+                        bucket.costs = round2(bucket.costs + m.totalCosts);
+                        bucket.profit = round2(bucket.profit + m.margin);
+                    }
+                });
+
+                const ctxBar = document.getElementById('monthlyChart').getContext('2d');
+                monthlyChartInstance = new Chart(ctxBar, {
+                    type: 'bar',
+                    data: {
+                        labels: monthsData.map(m => m.label),
+                        datasets: [
+                            {
+                                label: "Chiffre d'affaires (€)",
+                                data: monthsData.map(m => m.revenue),
+                                backgroundColor: '#4F46E5',
+                                borderRadius: 6,
+                                barPercentage: 0.72,
+                                categoryPercentage: 0.65
+                            },
+                            {
+                                label: 'Bénéfice Net (€)',
+                                data: monthsData.map(m => m.profit),
+                                backgroundColor: '#10B981',
+                                borderRadius: 6,
+                                barPercentage: 0.72,
+                                categoryPercentage: 0.65
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: { mode: 'index', intersect: false },
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                                align: 'end',
+                                labels: {
+                                    usePointStyle: true,
+                                    pointStyle: 'circle',
+                                    boxWidth: 8,
+                                    font: { family: 'Inter', size: 12 },
+                                    color: tickColor
+                                }
+                            },
+                            tooltip: {
+                                backgroundColor: '#0F172A',
+                                padding: 10,
+                                cornerRadius: 10,
+                                callbacks: {
+                                    label: ctx => ` ${ctx.dataset.label} : ${formatEuro(ctx.parsed.y)}`
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                grid: { display: false },
+                                ticks: { font: { family: 'Inter', size: 11 }, color: tickColor }
+                            },
+                            y: {
+                                beginAtZero: true,
+                                border: { display: false },
+                                grid: { color: gridColor },
+                                ticks: {
+                                    font: { family: 'Inter', size: 11 },
+                                    color: tickColor,
+                                    callback: v => `${v} €`
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            // --- GRAPHIQUE 2 : Répartition du Bénéfice Net par plateforme ---
+            const platformEmpty = document.getElementById('platform-chart-empty');
+            const platformContainer = document.getElementById('platform-chart-container');
+            const legendEl = document.getElementById('platform-legend');
+
+            if (platformChartInstance) {
+                platformChartInstance.destroy();
+                platformChartInstance = null;
+            }
+
+            const platformProfits = {};
+            soldItems.forEach(item => {
+                const m = computeMetrics(item);
+                const plat = item.platform || 'Autre';
+                platformProfits[plat] = round2((platformProfits[plat] || 0) + m.margin);
+            });
+
+            const positiveEntries = Object.entries(platformProfits).filter(([, val]) => val > 0);
+            const allEntries = Object.entries(platformProfits);
+
+            if (!hasSales || positiveEntries.length === 0) {
+                platformEmpty.classList.remove('hidden');
+                platformContainer.classList.add('hidden');
+                legendEl.innerHTML = allEntries.length > 0
+                    ? allEntries.map(([plat, val]) => `
+                        <div class="flex items-center justify-between gap-2 bg-slate-50 dark:bg-slate-800/70 px-2.5 py-1.5 rounded-lg">
+                            <span class="text-slate-600 dark:text-slate-300 truncate">${escapeHtml(plat)}</span>
+                            <span class="font-semibold ${val >= 0 ? 'text-emerald-600' : 'text-red-500'}">${formatEuro(val)}</span>
+                        </div>
+                    `).join('')
+                    : '<div class="col-span-full text-center text-slate-400 dark:text-slate-500 py-1">Aucune vente finalisée</div>';
+            } else {
+                platformEmpty.classList.add('hidden');
+                platformContainer.classList.remove('hidden');
+
+                const ctxDoughnut = document.getElementById('platformChart').getContext('2d');
+                platformChartInstance = new Chart(ctxDoughnut, {
+                    type: 'doughnut',
+                    data: {
+                        labels: positiveEntries.map(([k]) => k),
+                        datasets: [{
+                            data: positiveEntries.map(([, v]) => v),
+                            backgroundColor: positiveEntries.map(([k]) => PLATFORM_COLORS[k] || '#94A3B8'),
+                            borderWidth: 2,
+                            borderColor: borderColor,
+                            hoverOffset: 6
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        cutout: '68%',
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                backgroundColor: '#0F172A',
+                                padding: 10,
+                                cornerRadius: 10,
+                                callbacks: {
+                                    label: ctx => ` ${ctx.label} : ${formatEuro(ctx.parsed)}`
+                                }
+                            }
+                        }
+                    }
+                });
+
+                legendEl.innerHTML = allEntries.map(([plat, val]) => `
+                    <div class="flex items-center justify-between gap-2 bg-slate-50 dark:bg-slate-800/70 px-2.5 py-1.5 rounded-lg">
+                        <div class="flex items-center gap-1.5 truncate">
+                            <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: ${PLATFORM_COLORS[plat] || '#94A3B8'}"></span>
+                            <span class="text-slate-600 dark:text-slate-300 truncate">${escapeHtml(plat)}</span>
+                        </div>
+                        <span class="font-semibold shrink-0 ${val >= 0 ? 'text-slate-900 dark:text-white' : 'text-red-500'}">${formatEuro(val)}</span>
+                    </div>
+                `).join('');
+            }
+        }
+
+        function renderRecentItems() {
+            const listEl = document.getElementById('recent-items-list');
+            const emptyEl = document.getElementById('recent-items-empty');
+
+            if (items.length === 0) {
+                listEl.innerHTML = '';
+                emptyEl.classList.remove('hidden');
+                return;
+            }
+
+            emptyEl.classList.add('hidden');
+            const recent = [...items]
+                .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+                .slice(0, 5);
+
+            listEl.innerHTML = recent.map(item => {
+                const m = computeMetrics(item);
+                const hasSell = m.sellPrice > 0;
+                const marginColor = !hasSell ? 'text-slate-400' : (m.margin >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500');
+                return `
+                    <div class="px-5 py-3.5 flex items-center justify-between gap-3 hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
+                        <div class="min-w-0 flex-1">
+                            <div class="flex items-center gap-2">
+                                <span class="font-semibold text-sm text-slate-900 dark:text-white truncate">${escapeHtml(item.name)}</span>
+                                <span class="hidden sm:inline-block">${getStatusBadge(item.status)}</span>
+                            </div>
+                            <div class="flex items-center gap-2 mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                                <span>${escapeHtml(item.platform)}</span>
+                                <span>•</span>
+                                <span>Achat : ${formatEuro(m.buyPrice)}</span>
+                                <span class="sm:hidden">• ${escapeHtml(item.status)}</span>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3 shrink-0">
+                            <div class="text-right">
+                                <span class="block text-sm font-bold ${marginColor}">${hasSell ? (m.margin > 0 ? '+' : '') + formatEuro(m.margin) : '—'}</span>
+                                <span class="block text-[11px] text-slate-400">${hasSell ? m.roi.toFixed(0) + ' % ROI' : 'Sans prix'}</span>
+                            </div>
+                            <button type="button" onclick="openItemModal('${escapeHtml(item.id)}')" title="Modifier" class="p-2 rounded-lg text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/60 transition-colors">
+                                <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function getPlatformBadge(platform) {
+            const styles = {
+                'Vinted': 'bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 border-teal-200/70 dark:border-teal-800/60',
+                'Leboncoin': 'bg-orange-50 dark:bg-orange-950/60 text-orange-700 dark:text-orange-300 border-orange-200/70 dark:border-orange-800/60',
+                'eBay': 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border-indigo-200/70 dark:border-indigo-800/60',
+                'Vestiaire Collective': 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-slate-300/70 dark:border-slate-700',
+                'Autre': 'bg-slate-50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300 border-slate-200/70 dark:border-slate-700'
+            };
+            const cls = styles[platform] || styles['Autre'];
+            return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-medium border ${cls}">${escapeHtml(platform)}</span>`;
+        }
+
+        function getStatusBadge(status) {
+            if (status === 'Vendu') {
+                return `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>Vendu</span>`;
+            }
+            if (status === 'En ligne') {
+                return `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-400"><span class="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>En ligne</span>`;
+            }
+            return `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400"><span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>En stock</span>`;
+        }
+
+        function renderInventory() {
+            const search = (document.getElementById('search-input').value || '').trim().toLowerCase();
+            const statusFilter = document.getElementById('filter-status').value;
+            const platformFilter = document.getElementById('filter-platform').value;
+            const sortBy = document.getElementById('sort-by').value;
+
+            const filtered = items
+                .filter(item => {
+                    const matchSearch =
+                        !search ||
+                        item.name.toLowerCase().includes(search) ||
+                        (item.category || '').toLowerCase().includes(search) ||
+                        (item.notes || '').toLowerCase().includes(search) ||
+                        (item.platform || '').toLowerCase().includes(search);
+                    const matchStatus = statusFilter === 'ALL' || item.status === statusFilter;
+                    const matchPlatform = platformFilter === 'ALL' || item.platform === platformFilter;
+                    return matchSearch && matchStatus && matchPlatform;
+                })
+                .sort((a, b) => {
+                    const ma = computeMetrics(a);
+                    const mb = computeMetrics(b);
+                    if (sortBy === 'margin_desc') return mb.margin - ma.margin;
+                    if (sortBy === 'roi_desc') return mb.roi - ma.roi;
+                    if (sortBy === 'buy_desc') return mb.buyPrice - ma.buyPrice;
+                    return (b.createdAt || 0) - (a.createdAt || 0);
+                });
+
+            document.getElementById('filtered-count').textContent = filtered.length;
+
+            const tbody = document.getElementById('inventory-tbody');
+            const mobileCards = document.getElementById('inventory-mobile-cards');
+            const desktopWrapper = document.getElementById('inventory-desktop-wrapper');
+            const emptyState = document.getElementById('inventory-empty-state');
+            const emptyTitle = document.getElementById('inventory-empty-title');
+            const emptyDesc = document.getElementById('inventory-empty-desc');
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = '';
+                mobileCards.innerHTML = '';
+                desktopWrapper.classList.add('md:hidden');
+                emptyState.classList.remove('hidden');
+
+                if (items.length === 0) {
+                    emptyTitle.textContent = 'Votre stock est vide';
+                    emptyDesc.textContent = 'Enregistrez votre premier article pour suivre vos coûts, vos frais et votre marge nette.';
+                } else {
+                    emptyTitle.textContent = 'Aucun résultat';
+                    emptyDesc.textContent = 'Aucun article ne correspond à vos critères de recherche ou filtres actuels.';
+                }
+                lucide.createIcons();
+                return;
+            }
+
+            desktopWrapper.classList.remove('md:hidden');
+            emptyState.classList.add('hidden');
+
+            // Desktop Rows
+            tbody.innerHTML = filtered.map(item => {
+                const m = computeMetrics(item);
+                const isSold = item.status === 'Vendu';
+                const hasSell = m.sellPrice > 0;
+                const marginColor = !hasSell ? 'text-slate-400' : (m.margin >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500');
+
+                return `
+                    <tr class="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
+                        <td class="py-3.5 px-5">
+                            <div class="font-semibold text-slate-900 dark:text-white">${escapeHtml(item.name)}</div>
+                            <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">${escapeHtml(item.category)} • ${formatDateFR(isSold ? getEffectiveSaleDate(item) : item.purchaseDate)}</div>
+                        </td>
+                        <td class="py-3.5 px-3">${getPlatformBadge(item.platform)}</td>
+                        <td class="py-3.5 px-3 text-xs text-slate-600 dark:text-slate-300">${escapeHtml(item.condition)}</td>
+                        <td class="py-3.5 px-3">${getStatusBadge(item.status)}</td>
+                        <td class="py-3.5 px-3 text-right font-medium text-slate-700 dark:text-slate-300">${formatEuro(m.buyPrice)}</td>
+                        <td class="py-3.5 px-3 text-right font-medium text-slate-900 dark:text-white">
+                            ${hasSell ? formatEuro(m.sellPrice) : '<span class="text-slate-400">—</span>'}
+                            ${!isSold && hasSell ? '<span class="block text-[10px] text-slate-400">visé</span>' : ''}
+                        </td>
+                        <td class="py-3.5 px-3 text-right text-slate-500 dark:text-slate-400">${formatEuro(m.totalFees)}</td>
+                        <td class="py-3.5 px-3 text-right">
+                            <div class="font-bold ${marginColor}">${hasSell ? (m.margin > 0 ? '+' : '') + formatEuro(m.margin) : '—'}</div>
+                            ${hasSell ? `<div class="text-[11px] text-slate-400">${m.roi.toFixed(0)} % ROI</div>` : ''}
+                        </td>
+                        <td class="py-3.5 px-5 text-right whitespace-nowrap">
+                            <div class="inline-flex items-center gap-1">
+                                ${!isSold ? `
+                                    <button type="button" onclick="openQuickSellModal('${escapeHtml(item.id)}')" title="Marquer vendu" class="p-1.5 rounded-lg text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/60 transition-colors">
+                                        <i data-lucide="check-circle" class="w-4 h-4"></i>
+                                    </button>
+                                ` : ''}
+                                <button type="button" onclick="duplicateItem('${escapeHtml(item.id)}')" title="Dupliquer" class="p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/60 transition-colors">
+                                    <i data-lucide="copy" class="w-4 h-4"></i>
+                                </button>
+                                <button type="button" onclick="openItemModal('${escapeHtml(item.id)}')" title="Modifier" class="p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/60 transition-colors">
+                                    <i data-lucide="pencil" class="w-4 h-4"></i>
+                                </button>
+                                <button type="button" onclick="openDeleteModal('${escapeHtml(item.id)}')" title="Supprimer" class="p-1.5 rounded-lg text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/60 transition-colors">
+                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            // Mobile Cards
+            mobileCards.innerHTML = filtered.map(item => {
+                const m = computeMetrics(item);
+                const isSold = item.status === 'Vendu';
+                const hasSell = m.sellPrice > 0;
+                const marginColor = !hasSell ? 'text-slate-400' : (m.margin >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500');
+
+                return `
+                    <div class="p-4 space-y-3">
+                        <div class="flex items-start justify-between gap-2">
+                            <div class="min-w-0">
+                                <h3 class="font-semibold text-sm text-slate-900 dark:text-white leading-snug">${escapeHtml(item.name)}</h3>
+                                <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">${escapeHtml(item.category)} • ${escapeHtml(item.condition)}</p>
+                            </div>
+                            ${getStatusBadge(item.status)}
+                        </div>
+
+                        <div class="flex flex-wrap items-center gap-2">
+                            ${getPlatformBadge(item.platform)}
+                            <span class="text-xs text-slate-400">${formatDateFR(isSold ? getEffectiveSaleDate(item) : item.purchaseDate)}</span>
+                        </div>
+
+                        <div class="grid grid-cols-3 gap-2 bg-slate-50 dark:bg-slate-800/60 rounded-xl p-2.5 text-center">
+                            <div>
+                                <span class="block text-[10px] uppercase text-slate-400">Achat</span>
+                                <span class="text-xs font-semibold text-slate-800 dark:text-slate-200">${formatEuro(m.buyPrice)}</span>
+                            </div>
+                            <div>
+                                <span class="block text-[10px] uppercase text-slate-400">Vente</span>
+                                <span class="text-xs font-semibold text-slate-800 dark:text-slate-200">${hasSell ? formatEuro(m.sellPrice) : '—'}</span>
+                            </div>
+                            <div>
+                                <span class="block text-[10px] uppercase text-slate-400">Marge</span>
+                                <span class="text-xs font-bold ${marginColor}">${hasSell ? (m.margin > 0 ? '+' : '') + formatEuro(m.margin) : '—'}</span>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center justify-between gap-2 pt-1">
+                            ${!isSold ? `
+                                <button type="button" onclick="openQuickSellModal('${escapeHtml(item.id)}')" class="flex-1 inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 text-xs font-semibold">
+                                    <i data-lucide="check-circle" class="w-3.5 h-3.5"></i>
+                                    Marquer vendu
+                                </button>
+                            ` : '<span class="text-xs text-slate-400">ROI : ' + m.roi.toFixed(0) + ' %</span>'}
+                            <div class="flex items-center gap-1">
+                                <button type="button" onclick="duplicateItem('${escapeHtml(item.id)}')" aria-label="Dupliquer" class="p-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300">
+                                    <i data-lucide="copy" class="w-4 h-4"></i>
+                                </button>
+                                <button type="button" onclick="openItemModal('${escapeHtml(item.id)}')" aria-label="Modifier" class="p-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300">
+                                    <i data-lucide="pencil" class="w-4 h-4"></i>
+                                </button>
+                                <button type="button" onclick="openDeleteModal('${escapeHtml(item.id)}')" aria-label="Supprimer" class="p-2 rounded-xl border border-red-200 dark:border-red-900/60 text-red-500">
+                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            lucide.createIcons();
+        }
+
+        function renderStatsTables() {
+            const soldItems = items.filter(i => i.status === 'Vendu');
+
+            const monthlyEmpty = document.getElementById('stats-monthly-empty');
+            const monthlyWrapper = document.getElementById('stats-monthly-wrapper');
+            const monthlyTbody = document.getElementById('monthly-summary-tbody');
+
+            const platEmpty = document.getElementById('stats-platform-empty');
+            const platWrapper = document.getElementById('stats-platform-wrapper');
+            const platTbody = document.getElementById('platform-perf-tbody');
+
+            const topEmpty = document.getElementById('top-sales-empty');
+            const topList = document.getElementById('top-sales-list');
+
+            if (soldItems.length === 0) {
+                monthlyEmpty.classList.remove('hidden');
+                monthlyWrapper.classList.add('hidden');
+                platEmpty.classList.remove('hidden');
+                platWrapper.classList.add('hidden');
+                topEmpty.classList.remove('hidden');
+                topList.innerHTML = '';
+                return;
+            }
+
+            monthlyEmpty.classList.add('hidden');
+            monthlyWrapper.classList.remove('hidden');
+            platEmpty.classList.add('hidden');
+            platWrapper.classList.remove('hidden');
+            topEmpty.classList.add('hidden');
+
+            // 1. Tableau mensuel dynamique (tous les mois ayant des ventes + 6 derniers mois)
+            const monthNames = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
+            const monthMap = {};
+
+            getLast6MonthsBuckets().forEach(b => {
+                monthMap[b.key] = b;
+            });
+
+            soldItems.forEach(item => {
+                const m = computeMetrics(item);
+                const dateStr = getEffectiveSaleDate(item);
+                const key = dateStr.slice(0, 7);
+                if (!key || key.length !== 7) return;
+                if (!monthMap[key]) {
+                    const [y, mo] = key.split('-');
+                    const mIdx = Math.max(0, Math.min(11, parseInt(mo, 10) - 1));
+                    monthMap[key] = { key, label: `${monthNames[mIdx]} ${y}`, sales: 0, revenue: 0, costs: 0, profit: 0 };
+                }
+                monthMap[key].sales++;
+                monthMap[key].revenue = round2(monthMap[key].revenue + m.sellPrice);
+                monthMap[key].costs = round2(monthMap[key].costs + m.totalCosts);
+                monthMap[key].profit = round2(monthMap[key].profit + m.margin);
+            });
+
+            const sortedMonths = Object.values(monthMap).sort((a, b) => b.key.localeCompare(a.key));
+            monthlyTbody.innerHTML = sortedMonths.map(m => {
+                const marginPct = m.revenue > 0 ? round2((m.profit / m.revenue) * 100) : 0;
+                const profitClass = m.profit > 0
+                    ? 'text-emerald-600 dark:text-emerald-400 font-semibold'
+                    : m.profit < 0
+                        ? 'text-red-500 font-semibold'
+                        : 'text-slate-400';
+                return `
+                    <tr class="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
+                        <td class="py-3.5 px-5 font-medium text-slate-900 dark:text-white">${escapeHtml(m.label)}</td>
+                        <td class="py-3.5 px-4 text-right text-slate-600 dark:text-slate-300">${m.sales}</td>
+                        <td class="py-3.5 px-4 text-right font-medium text-slate-900 dark:text-white">${formatEuro(m.revenue)}</td>
+                        <td class="py-3.5 px-4 text-right text-slate-500 dark:text-slate-400">${formatEuro(m.costs)}</td>
+                        <td class="py-3.5 px-4 text-right ${profitClass}">${formatEuro(m.profit)}</td>
+                        <td class="py-3.5 px-5 text-right font-semibold ${marginPct >= 0 ? 'text-slate-700 dark:text-slate-300' : 'text-red-500'}">${m.sales > 0 ? marginPct.toFixed(1) + ' %' : '—'}</td>
+                    </tr>
+                `;
+            }).join('');
+
+            // 2. Performance par plateforme
+            const platMap = {};
+            soldItems.forEach(item => {
+                const m = computeMetrics(item);
+                const p = item.platform || 'Autre';
+                if (!platMap[p]) platMap[p] = { platform: p, sales: 0, revenue: 0, profit: 0 };
+                platMap[p].sales++;
+                platMap[p].revenue = round2(platMap[p].revenue + m.sellPrice);
+                platMap[p].profit = round2(platMap[p].profit + m.margin);
+            });
+
+            const sortedPlats = Object.values(platMap).sort((a, b) => b.profit - a.profit);
+            platTbody.innerHTML = sortedPlats.map(p => {
+                const avgProfit = p.sales > 0 ? round2(p.profit / p.sales) : 0;
+                return `
+                    <tr class="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
+                        <td class="py-3 px-4">${getPlatformBadge(p.platform)}</td>
+                        <td class="py-3 px-3 text-right text-slate-600 dark:text-slate-300">${p.sales}</td>
+                        <td class="py-3 px-3 text-right font-medium text-slate-900 dark:text-white">${formatEuro(p.revenue)}</td>
+                        <td class="py-3 px-4 text-right font-bold ${avgProfit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'}">${avgProfit > 0 ? '+' : ''}${formatEuro(avgProfit)}</td>
+                    </tr>
+                `;
+            }).join('');
+
+            // 3. Top 5 ventes les plus rentables
+            const top5 = [...soldItems]
+                .map(item => ({ item, m: computeMetrics(item) }))
+                .sort((a, b) => b.m.margin - a.m.margin)
+                .slice(0, 5);
+
+            topList.innerHTML = top5.map(({ item, m }, idx) => `
+                <div class="px-5 py-3.5 flex items-center justify-between gap-3">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <span class="w-6 h-6 rounded-lg bg-indigo-50 dark:bg-indigo-950/70 text-indigo-600 dark:text-indigo-400 text-xs font-bold flex items-center justify-center shrink-0">${idx + 1}</span>
+                        <div class="min-w-0">
+                            <p class="text-sm font-semibold text-slate-900 dark:text-white truncate">${escapeHtml(item.name)}</p>
+                            <p class="text-xs text-slate-500 dark:text-slate-400">${escapeHtml(item.platform)} • Vente : ${formatEuro(m.sellPrice)}</p>
+                        </div>
+                    </div>
+                    <div class="text-right shrink-0">
+                        <span class="block text-sm font-bold ${m.margin >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'}">${m.margin > 0 ? '+' : ''}${formatEuro(m.margin)}</span>
+                        <span class="block text-[11px] text-slate-400">${m.roi.toFixed(0)} % ROI</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // ==========================================
+        // 7. MODALE ARTICLE (AJOUT / ÉDITION)
+        // ==========================================
+        function openItemModal(itemId = null) {
+            const modal = document.getElementById('item-modal');
+            const title = document.getElementById('modal-title');
+            const form = document.getElementById('item-form');
+            form.reset();
+
+            if (itemId) {
+                const item = items.find(i => i.id === itemId);
+                if (!item) return;
+                title.textContent = "Modifier l'article";
+                document.getElementById('item-id').value = item.id;
+                document.getElementById('item-name').value = item.name;
+                document.getElementById('item-category').value = item.category || 'Autre';
+                document.getElementById('item-condition').value = item.condition || 'Très bon état';
+                document.getElementById('item-platform').value = item.platform || 'Vinted';
+                document.getElementById('item-status').value = item.status || 'En stock';
+                document.getElementById('item-purchase-date').value = item.purchaseDate || getTodayISO();
+                document.getElementById('item-sale-date').value = item.saleDate || getTodayISO();
+                document.getElementById('item-buy-price').value = item.buyPrice;
+                document.getElementById('item-sell-price').value = item.sellPrice || '';
+                document.getElementById('item-platform-fee').value = item.platformFee || 0;
+                document.getElementById('item-shipping-fee').value = item.shippingFee || 0;
+                document.getElementById('item-notes').value = item.notes || '';
+                document.getElementById('auto-fee-toggle').checked = false;
+            } else {
+                title.textContent = 'Nouvel article';
+                document.getElementById('item-id').value = '';
+                document.getElementById('item-category').value = 'Vêtements';
+                document.getElementById('item-condition').value = 'Très bon état';
+                document.getElementById('item-platform').value = 'Vinted';
+                document.getElementById('item-status').value = 'En stock';
+                document.getElementById('item-purchase-date').value = getTodayISO();
+                document.getElementById('item-sale-date').value = getTodayISO();
+                document.getElementById('item-platform-fee').value = 0;
+                document.getElementById('item-shipping-fee').value = 0;
+                document.getElementById('auto-fee-toggle').checked = true;
+            }
+
+            toggleSaleDateField();
+            updateLivePreview();
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            lucide.createIcons();
+            setTimeout(() => document.getElementById('item-name').focus(), 50);
+        }
+
+        function closeItemModal() {
+            const modal = document.getElementById('item-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function toggleSaleDateField() {
+            const status = document.getElementById('item-status').value;
+            const wrapper = document.getElementById('sale-date-wrapper');
+            const saleInput = document.getElementById('item-sale-date');
+
+            if (status === 'Vendu') {
+                wrapper.classList.remove('hidden');
+                if (!saleInput.value) saleInput.value = getTodayISO();
+            } else {
+                wrapper.classList.add('hidden');
+            }
+        }
+
+        function handlePlatformOrPriceChange() {
+            const autoToggle = document.getElementById('auto-fee-toggle').checked;
+            if (autoToggle) {
+                const platform = document.getElementById('item-platform').value;
+                const sellPrice = safePositive(document.getElementById('item-sell-price').value);
+                const rate = PLATFORM_FEE_RATES[platform] || 0;
+                const computedFee = round2(sellPrice * rate);
+                document.getElementById('item-platform-fee').value = computedFee;
+            }
+            updateLivePreview();
+        }
+
+        function handleManualFeeInput() {
+            document.getElementById('auto-fee-toggle').checked = false;
+            updateLivePreview();
+        }
+
+        function updateLivePreview() {
+            const buy = safePositive(document.getElementById('item-buy-price').value);
+            const sell = safePositive(document.getElementById('item-sell-price').value);
+            const pFee = safePositive(document.getElementById('item-platform-fee').value);
+            const sFee = safePositive(document.getElementById('item-shipping-fee').value);
+
+            const totalCosts = round2(buy + pFee + sFee);
+            const margin = round2(sell - totalCosts);
+            const roi = buy > 0 ? round2((margin / buy) * 100) : 0;
+
+            document.getElementById('preview-costs').textContent = formatEuro(totalCosts);
+
+            const marginEl = document.getElementById('preview-margin');
+            marginEl.textContent = (margin > 0 ? '+' : '') + formatEuro(margin);
+            marginEl.className = `text-sm sm:text-base font-bold ${margin >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'}`;
+
+            const roiEl = document.getElementById('preview-roi');
+            roiEl.textContent = `${roi.toFixed(1)} %`;
+            roiEl.className = `text-sm sm:text-base font-bold ${roi >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'}`;
+        }
+
+        function handleItemSubmit(e) {
+            e.preventDefault();
+            const id = document.getElementById('item-id').value;
+            const status = document.getElementById('item-status').value;
+            const existing = id ? items.find(i => i.id === id) : null;
+
+            const itemData = {
+                id: id || 'item-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+                name: document.getElementById('item-name').value.trim(),
+                category: document.getElementById('item-category').value,
+                condition: document.getElementById('item-condition').value,
+                platform: document.getElementById('item-platform').value,
+                status,
+                purchaseDate: document.getElementById('item-purchase-date').value || getTodayISO(),
+                saleDate: status === 'Vendu' ? (document.getElementById('item-sale-date').value || getTodayISO()) : '',
+                buyPrice: safePositive(document.getElementById('item-buy-price').value),
+                sellPrice: safePositive(document.getElementById('item-sell-price').value),
+                platformFee: safePositive(document.getElementById('item-platform-fee').value),
+                shippingFee: safePositive(document.getElementById('item-shipping-fee').value),
+                notes: document.getElementById('item-notes').value.trim(),
+                createdAt: existing ? existing.createdAt : Date.now()
+            };
+
+            if (!itemData.name) {
+                showToast("Le nom de l'article est obligatoire", true);
+                return;
+            }
+
+            if (existing) {
+                const idx = items.findIndex(i => i.id === id);
+                if (idx !== -1) items[idx] = itemData;
+                showToast('Article modifié avec succès');
+            } else {
+                items.unshift(itemData);
+                showToast('Article ajouté au stock');
+            }
+
+            saveItems();
+            renderAll();
+            closeItemModal();
+        }
+
+        // ==========================================
+        // 8. ACTIONS RAPIDES (VENDU, DUPLIQUER, SUPPRIMER)
+        // ==========================================
+        function openQuickSellModal(id) {
+            const item = items.find(i => i.id === id);
+            if (!item) return;
+
+            document.getElementById('quick-sell-id').value = item.id;
+            document.getElementById('quick-sell-name').textContent = item.name;
+            document.getElementById('quick-sell-price').value = item.sellPrice > 0 ? item.sellPrice : '';
+            document.getElementById('quick-sell-date').value = getTodayISO();
+
+            const modal = document.getElementById('quick-sell-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            lucide.createIcons();
+            setTimeout(() => document.getElementById('quick-sell-price').focus(), 50);
+        }
+
+        function closeQuickSellModal() {
+            const modal = document.getElementById('quick-sell-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function handleQuickSellSubmit(e) {
+            e.preventDefault();
+            const id = document.getElementById('quick-sell-id').value;
+            const sellPrice = safePositive(document.getElementById('quick-sell-price').value);
+            const saleDate = document.getElementById('quick-sell-date').value || getTodayISO();
+
+            const item = items.find(i => i.id === id);
+            if (!item) return;
+
+            item.status = 'Vendu';
+            item.sellPrice = sellPrice;
+            item.saleDate = saleDate;
+
+            // Recalcul auto des frais plateforme si à 0 sur eBay / Vestiaire
+            const rate = PLATFORM_FEE_RATES[item.platform] || 0;
+            if (rate > 0 && item.platformFee === 0) {
+                item.platformFee = round2(sellPrice * rate);
+            }
+
+            saveItems();
+            renderAll();
+            closeQuickSellModal();
+            showToast(`"${item.name}" marqué comme vendu !`);
+        }
+
+        function duplicateItem(id) {
+            const original = items.find(i => i.id === id);
+            if (!original) return;
+
+            const copy = {
+                ...original,
+                id: 'item-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+                name: `${original.name} (copie)`,
+                status: 'En stock',
+                saleDate: '',
+                purchaseDate: getTodayISO(),
+                createdAt: Date.now()
+            };
+
+            items.unshift(copy);
+            saveItems();
+            renderAll();
+            showToast('Article dupliqué dans votre stock');
+        }
+
+        function openDeleteModal(id) {
+            const item = items.find(i => i.id === id);
+            if (!item) return;
+
+            isDoubleConfirmMode = false;
+            confirmStep = 1;
+            document.getElementById('confirm-title').textContent = 'Supprimer cet article ?';
+            document.getElementById('confirm-message').textContent = `"${item.name}" sera définitivement supprimé de votre inventaire.`;
+            document.getElementById('confirm-action-btn').textContent = 'Supprimer';
+
+            confirmCallback = () => {
+                items = items.filter(i => i.id !== id);
+                saveItems();
+                renderAll();
+                showToast('Article supprimé');
+            };
+            showConfirmModal();
+        }
+
+        function openResetDoubleConfirm() {
+            if (items.length === 0) {
+                showToast('Aucune donnée à réinitialiser');
+                return;
+            }
+            isDoubleConfirmMode = true;
+            confirmStep = 1;
+            document.getElementById('confirm-title').textContent = 'Réinitialiser toutes les données ?';
+            document.getElementById('confirm-message').textContent = `Vous êtes sur le point d'effacer ${items.length} article(s). Pensez à faire une sauvegarde JSON avant de continuer.`;
+            document.getElementById('confirm-action-btn').textContent = 'Continuer (1/2)';
+
+            confirmCallback = () => {
+                items = [];
+                saveItems();
+                renderAll();
+                showToast('Toutes les données ont été effacées');
+            };
+            showConfirmModal();
+        }
+
+        function showConfirmModal() {
+            const modal = document.getElementById('confirm-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            lucide.createIcons();
+        }
+
+        function closeConfirmModal() {
+            const modal = document.getElementById('confirm-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            confirmCallback = null;
+            confirmStep = 1;
+            isDoubleConfirmMode = false;
+        }
+
+        document.getElementById('confirm-action-btn').addEventListener('click', () => {
+            if (isDoubleConfirmMode && confirmStep === 1) {
+                confirmStep = 2;
+                document.getElementById('confirm-title').textContent = 'Dernière confirmation';
+                document.getElementById('confirm-message').textContent = 'Cette suppression est définitive et impossible à annuler. Confirmez-vous la réinitialisation complète ?';
+                document.getElementById('confirm-action-btn').textContent = 'Tout effacer (2/2)';
+                return;
+            }
+
+            if (typeof confirmCallback === 'function') {
+                confirmCallback();
+            }
+            closeConfirmModal();
+        });
+
+        // ==========================================
+        // 9. EXPORT CSV (EXCEL FR), SAUVEGARDE & IMPORT JSON
+        // ==========================================
+        function exportCSV() {
+            if (items.length === 0) {
+                showToast('Aucun article à exporter', true);
+                return;
+            }
+
+            const headers = [
+                'Nom', 'Catégorie', 'État', 'Plateforme', 'Statut',
+                "Date d'achat", 'Date de vente',
+                'Prix Achat (€)', 'Prix Vente (€)', 'Frais Plateforme (€)', 'Frais Port/Emb (€)',
+                'Marge Nette (€)', 'ROI (%)', 'Notes'
+            ];
+
+            const rows = items.map(item => {
+                const m = computeMetrics(item);
+                const clean = s => `"${String(s || '').replace(/"/g, '""').replace(/\r?\n/g, ' ')}"`;
+                const numFR = n => round2(n).toFixed(2).replace('.', ',');
+
+                return [
+                    clean(item.name),
+                    clean(item.category),
+                    clean(item.condition),
+                    clean(item.platform),
+                    clean(item.status),
+                    item.purchaseDate || '',
+                    item.saleDate || '',
+                    numFR(m.buyPrice),
+                    numFR(m.sellPrice),
+                    numFR(m.platformFee),
+                    numFR(m.shippingFee),
+                    numFR(m.margin),
+                    round2(m.roi).toFixed(1).replace('.', ','),
+                    clean(item.notes)
+                ].join(';');
+            });
+
+            const csvContent = '\uFEFF' + [headers.join(';'), ...rows].join('\n');
+            downloadFile(csvContent, `MargePilot_Export_${getTodayISO()}.csv`, 'text/csv;charset=utf-8;');
+            showToast('Export CSV comptable téléchargé');
+        }
+
+        function exportJSON() {
+            const payload = {
+                app: 'MargePilot',
+                version: 2,
+                exportedAt: new Date().toISOString(),
+                items
+            };
+            const jsonStr = JSON.stringify(payload, null, 2);
+            downloadFile(jsonStr, `MargePilot_Sauvegarde_${getTodayISO()}.json`, 'application/json;charset=utf-8;');
+            showToast('Sauvegarde JSON téléchargée');
+        }
+
+        function triggerImportJSON() {
+            const input = document.getElementById('json-import-input');
+            input.value = '';
+            input.click();
+        }
+
+        function handleImportJSON(event) {
+            const file = event.target.files && event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                try {
+                    const parsed = JSON.parse(e.target.result);
+                    const rawList = Array.isArray(parsed) ? parsed : (parsed && Array.isArray(parsed.items) ? parsed.items : null);
+
+                    if (!rawList) {
+                        showToast('Format de fichier JSON invalide', true);
+                        return;
+                    }
+
+                    const validItems = rawList.map(sanitizeItem).filter(Boolean);
+                    items = validItems;
+                    saveItems();
+                    renderAll();
+                    showToast(`${validItems.length} article(s) restauré(s) avec succès`);
+                } catch (err) {
+                    console.error('Erreur import JSON:', err);
+                    showToast('Impossible de lire ce fichier JSON', true);
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function downloadFile(content, filename, mimeType) {
+            const blob = new Blob([content], { type: mimeType });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // ==========================================
+        // 10. TOAST & RACCOURCIS CLAVIER
+        // ==========================================
+        function showToast(message, isError = false) {
+            const toast = document.getElementById('toast');
+            const icon = document.getElementById('toast-icon');
+            document.getElementById('toast-message').textContent = message;
+
+            icon.setAttribute('data-lucide', isError ? 'alert-circle' : 'check-circle-2');
+            icon.className = isError ? 'w-4 h-4 text-red-400 shrink-0' : 'w-4 h-4 text-emerald-400 shrink-0';
+            lucide.createIcons();
+
+            toast.classList.remove('translate-y-16', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+
+            if (toastTimer) clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => {
+                toast.classList.add('translate-y-16', 'opacity-0');
+                toast.classList.remove('translate-y-0', 'opacity-100');
+            }, 2800);
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeItemModal();
+                closeQuickSellModal();
+                closeConfirmModal();
+            }
+        });
+
+        // ==========================================
+        // 11. INITIALISATION
+        // ==========================================
+        window.addEventListener('DOMContentLoaded', () => {
+            syncThemeUI();
+            loadItems();
+            renderAll();
+            switchView('dashboard');
+        });
+    </script>
+</body>
+</html>
